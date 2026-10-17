@@ -123,6 +123,15 @@ Config.accordion_peek = 36 ---@type number
 ---usable windows at the cost of the last title bars sliding off-screen
 Config.stack_min_height = 150 ---@type number
 
+---seconds for windows to slide into place, set to 0 to move instantly
+Config.animation_duration = 0 ---@type number
+
+---easing curve for window animations, see Animation.easings
+Config.animation_easing = "ease_out_cubic" ---@type "linear"|"ease_out_quad"|"ease_out_cubic"|"ease_out_quart"|"ease_out_expo"|"ease_in_out_cubic"|"ease_out_back"|"spring"
+
+---animation frame rate, raise to 120 on ProMotion displays
+Config.animation_fps = 60 ---@type number
+
 ---default column layout mode: "tiled" or "stacked"
 Config.column_layout = "tiled" ---@type "tiled"|"stacked"
 

@@ -73,6 +73,7 @@ PaperWM.events = dofile(hs.spoons.resourcePath("events.lua"))
 PaperWM.actions = dofile(hs.spoons.resourcePath("actions.lua"))
 PaperWM.floating = dofile(hs.spoons.resourcePath("floating.lua"))
 PaperWM.tiling = dofile(hs.spoons.resourcePath("tiling.lua"))
+PaperWM.animation = dofile(hs.spoons.resourcePath("animation.lua"))
 
 -- Initialize modules
 PaperWM.windows.init(PaperWM)
@@ -82,6 +83,7 @@ PaperWM.actions.init(PaperWM)
 PaperWM.state.init(PaperWM)
 PaperWM.floating.init(PaperWM)
 PaperWM.tiling.init(PaperWM)
+PaperWM.animation.init(PaperWM)
 
 -- Apply config
 for k, v in pairs(PaperWM.config) do
@@ -117,6 +119,9 @@ end
 function PaperWM:stop()
     -- stop events
     self.events.stop()
+
+    -- land in-flight animations before releasing windows
+    self.animation.finishAll()
 
     -- fit all windows within the bounds of the screen
     for _, window in ipairs(self.window_filter:getWindows()) do

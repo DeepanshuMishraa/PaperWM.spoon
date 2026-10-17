@@ -90,17 +90,88 @@ function Actions.actions()
         focus_window_7 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 7),
         focus_window_8 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 8),
         focus_window_9 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 9),
+        move_column_1 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 1),
+        move_column_2 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 2),
+        move_column_3 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 3),
+        move_column_4 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 4),
+        move_column_5 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 5),
+        move_column_6 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 6),
+        move_column_7 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 7),
+        move_column_8 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 8),
+        move_column_9 = Fnutils.partial(Actions.PaperWM.windows.moveColumnTo, 9),
         focus_window_first = Actions.PaperWM.windows.focusWindowFirst,
         focus_window_last = Actions.PaperWM.windows.focusWindowLast,
     }
 end
 
+local modifier_aliases <const> = {
+    alt = "alt", option = "alt", opt = "alt", ["⌥"] = "alt",
+    cmd = "cmd", command = "cmd", ["⌘"] = "cmd",
+    ctrl = "ctrl", control = "ctrl", ["⌃"] = "ctrl",
+    shift = "shift", ["⇧"] = "shift",
+}
+
+---canonical modifier signature, e.g. "alt+shift"; fn is ignored because
+---macOS sets it on arrow, home, and end key events
+---@param has fun(name: string): boolean
+---@return string
+local function modifier_signature(has)
+    local parts = {}
+    for _, name in ipairs({ "alt", "cmd", "ctrl", "shift" }) do
+        if has(name) then table.insert(parts, name) end
+    end
+    return table.concat(parts, "+")
+end
+
 ---bind userdefined hotkeys to PaperWM actions
 ---use PaperWM.default_hotkeys for suggested defaults
+---
+---bindings use a keyDown eventtap rather than hs.hotkey: since macOS 15,
+---hotkeys whose only modifiers are option or option+shift never fire
 ---@param mapping Mapping table of actions and hotkeys
 function Actions.bindHotkeys(mapping)
     local spec = Actions.actions()
-    hs.spoons.bindHotkeysToSpec(spec, mapping)
+    local bindings = {}
+    for name, binding in pairs(mapping) do
+        local action = spec[name]
+        local mods, key = binding[1], binding[2]
+        local keycode = type(key) == "string" and hs.keycodes.map[key:lower()] or nil
+        if not action then
+            Actions.PaperWM.logger.ef("bindHotkeys: unknown action '%s', binding skipped", name)
+        elseif not keycode then
+            Actions.PaperWM.logger.ef("bindHotkeys: unknown key '%s' for action '%s', binding skipped", key, name)
+        else
+            local wanted = {}
+            for _, mod in ipairs(mods) do
+                local canonical = modifier_aliases[mod:lower()]
+                if canonical then wanted[canonical] = true end
+            end
+            local sig = modifier_signature(function(n) return wanted[n] == true end)
+            bindings[keycode .. ":" .. sig] = action
+        end
+    end
+
+    if Actions.key_tap then Actions.key_tap:stop() end
+    if Actions.key_watchdog then Actions.key_watchdog:stop() end
+
+    local KeyDown <const> = hs.eventtap.event.types.keyDown
+    local Autorepeat <const> = hs.eventtap.event.properties.keyboardEventAutorepeat
+    Actions.key_tap = hs.eventtap.new({ KeyDown }, function(event)
+        local flags = event:getFlags()
+        local sig = modifier_signature(function(n) return flags[n] == true end)
+        local action = bindings[event:getKeyCode() .. ":" .. sig]
+        if not action then return false end
+        if event:getProperty(Autorepeat) == 0 then
+            -- run outside the tap callback so slow actions can't stall typing
+            hs.timer.doAfter(0, action)
+        end
+        return true -- swallow, so option+key doesn't type a symbol
+    end):start()
+
+    -- macOS silently disables an eventtap whose callback was too slow
+    Actions.key_watchdog = hs.timer.doEvery(1, function()
+        if not Actions.key_tap:isEnabled() then Actions.key_tap:start() end
+    end)
 end
 
 return Actions

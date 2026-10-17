@@ -517,6 +517,37 @@ function Windows.swapWindows(direction)
     Windows.PaperWM:tileSpace(focused_index.space)
 end
 
+---move the focused window's column to position n in the current space,
+---shifting the columns in between; n past the last column moves it to the end
+---@param n number column position from left to right
+function Windows.moveColumnTo(n)
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        Windows.PaperWM.logger.d("focused window not found")
+        return
+    end
+
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
+    if not focused_index then
+        Windows.PaperWM.logger.e("focused index not found")
+        return
+    end
+
+    local columns = Windows.PaperWM.state.windowList(focused_index.space)
+    local target_column = math.min(n, #columns)
+    if target_column == focused_index.col then return end
+
+    -- start the focused window where the target column is, then tile around it
+    local focused_frame = focused_window:frame()
+    focused_frame.x = columns[target_column][1]:frame().x
+    Windows.moveWindow(focused_window, focused_frame)
+
+    local windows = table.remove(columns, focused_index.col)
+    table.insert(columns, target_column, windows)
+
+    Windows.PaperWM:tileSpace(focused_index.space)
+end
+
 ---move the focused window to the center of the screen, horizontally
 ---don't resize the window or change it's vertical position
 function Windows.centerWindow()
@@ -946,18 +977,29 @@ end
 ---@param window Window window to move
 ---@param frame Frame coordinates to set window size and location
 function Windows.moveWindow(window, frame)
-    -- greater than 0.017 hs.window animation step time
+    -- time for macOS to deliver the move events caused by an instant setFrame
     local padding <const> = 0.02
     local id = window:id()
 
-    if frame == window:frame() then
+    local current = window:frame()
+    if frame == current then
         Windows.PaperWM.logger.v("no change in window frame")
         return
     end
 
+    if (Windows.PaperWM.animation_duration or 0) > 0 then
+        Windows.PaperWM.animation.move(window, frame)
+        return
+    end
+
     Windows.PaperWM.state.uiWatcherStop(id)
-    window:setFrame(frame)
-    Timer.doAfter(Window.animationDuration + padding, function()
+    if frame.w == current.w and frame.h == current.h then
+        -- one AX call instead of setFrame's resize, move, resize
+        window:setTopLeft(frame.x, frame.y)
+    else
+        window:setFrame(frame, 0)
+    end
+    Timer.doAfter(padding, function()
         Windows.PaperWM.state.uiWatcherStart(id)
     end)
 end

@@ -9,6 +9,7 @@ Swipe.END   = 3
 
 
 local Cache = { id = nil, direction = nil, distance = 0, size = 0, touches = {} }
+local next_id = 0
 
 function Cache:clear()
     self.id = nil
@@ -52,7 +53,8 @@ function Cache:set(touches)
         }
         self.size = i
     end
-    self.id = hs.math.randomFromRange(1, 0xFFFF)
+    next_id = next_id + 1 -- hs.math would lazy-load an extension on the first swipe
+    self.id = next_id
     return self.id
 end
 
@@ -110,9 +112,18 @@ function Swipe:start(fingers, callback)
 
     Cache:clear()
     self.watcher:start()
+
+    -- macOS silently disables an eventtap whose callback was too slow
+    self.watchdog = hs.timer.doEvery(1, function()
+        if self.watcher and not self.watcher:isEnabled() then self.watcher:start() end
+    end)
 end
 
 function Swipe:stop()
+    if self.watchdog then
+        self.watchdog:stop()
+        self.watchdog = nil
+    end
     if self.watcher then
         self.watcher:stop()
         self.watcher = nil

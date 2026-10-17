@@ -48,6 +48,10 @@ function M.mock_window(id, title, frame, opts)
             end
             frame = new_frame
         end,
+        setTopLeft = function(_, x, y) -- invoked window:setTopLeft(x, y)
+            frame.x, frame.y = x, y
+            frame.x2, frame.y2 = x + frame.w, y + frame.h
+        end,
         screen = function() return M.mock_screen() end,
     }
 end

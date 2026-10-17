@@ -317,6 +317,20 @@ indefinitely, at the cost of the last title bars sliding off-screen:
 PaperWM.stack_min_height = 150 -- floor for the shared window height
 ```
 
+### Animations
+
+Windows slide into place on one shared timer. Size changes apply once at the
+start and only the position is animated, so apps don't relayout every frame.
+A retile during an animation continues from where each window currently is.
+
+```lua
+PaperWM.animation_duration = 0 -- seconds, 0 (default) moves windows instantly
+PaperWM.animation_fps = 60 -- 120 for ProMotion displays
+-- linear, ease_out_quad, ease_out_cubic, ease_out_quart, ease_out_expo,
+-- ease_in_out_cubic, ease_out_back (overshoots), spring (overshoots)
+PaperWM.animation_easing = "ease_out_cubic"
+```
+
 ### Smooth Scrolling
 
 https://github.com/user-attachments/assets/6f1c4659-0ca8-4ba1-a181-8c1c6987e8ef
